@@ -15,6 +15,7 @@ class _LoadingResourceState extends State<LoadingResource> {
   @override
   Widget build(BuildContext context) {
     var student = context.watch<AppState>().studentmodel;
-    return student == null ? LoginPage() : HomePage();
+    // return student == null ? LoginPage() : HomePage();
+    return HomePage();
   }
 }

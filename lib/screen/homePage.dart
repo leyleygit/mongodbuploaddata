@@ -16,39 +16,47 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   TextEditingController pronameController = TextEditingController();
   TextEditingController propriceController = TextEditingController();
+  FocusNode focusproname = FocusNode();
+  FocusNode focusproprice = FocusNode();
+
   GlobalKey<FormState> formstate = GlobalKey<FormState>();
-  BehaviorSubject subjectAddProduct = BehaviorSubject();
+  BehaviorSubject<bool> subjectInsertbutton = BehaviorSubject<bool>();
   late mongo.Db db;
-  List<ProductModel> products = [];
-  BehaviorSubject<List<ProductModel>> subjectProducts =
+  BehaviorSubject<List<ProductModel>> subjectfetchproduct =
       BehaviorSubject<List<ProductModel>>();
+  List<ProductModel> products = [];
   fetchDataProdutTomodel() async {
     await db.collection('product').find().forEach((element) {
       ProductModel product = ProductModel.fromJson(element);
-      products.add(product);
+      // products.add(product);
+      if (!products.map((e) => e.id).contains(product.id)) {
+        products.add(product);
+      }
     });
-    subjectAddProduct.add(products);
+    subjectfetchproduct.add(products);
   }
 
   //upload data to Table model in mogoDB
-  postMongoDBdata() {
-    db.collection('product').insertOne({
-      "name": pronameController.value.toString(),
-      "price": propriceController.value
+  postMongoDBdata() async {
+    await db.collection('product').insert({
+      "name": pronameController.text.toString(),
+      "price": int.parse(propriceController.text)
     });
+  }
+
+  @override
+  void dispose() {
+    subjectInsertbutton.close();
+    subjectfetchproduct.close();
+
+    super.dispose();
   }
 
   @override
   void initState() {
     db = context.read<AppState>().db;
+    fetchDataProdutTomodel();
     super.initState();
-  }
-
-  @override
-  void dispose() {
-    subjectAddProduct.close(); //subject for validate button add product!!
-    subjectProducts.close(); //subject for query to show data IN UI from mongodb
-    super.dispose();
   }
 
   @override
@@ -56,83 +64,134 @@ class _HomePageState extends State<HomePage> {
     Size size = MediaQuery.of(context).size;
     return Scaffold(
         backgroundColor: Colors.white,
-        // floatingActionButton: FloatingActionButton(
-        //   onPressed: () {
-        //     context.read<AppState>().studentmodel = null;
-        //     Navigator.pushReplacement(
-        //         context, CupertinoPageRoute(builder: (_) => LoadingResource()));
-        //   },
-        // ),
-
         body: SafeArea(
           child: Column(
             children: [
               Container(
-                width: size.width,
-                height: 300,
-                child: Form(
-                  key: formstate,
-                  onChanged: () {
-                    bool isValidate = formstate.currentState!.validate();
-                    subjectAddProduct.add(isValidate);
-                  },
-                  child: ListView(
-                    children: [
-                      Text(
-                        'Product',
-                        style: TextStyle(color: Colors.orange, fontSize: 30),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: TextFormField(
-                          controller: pronameController,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return "product name required";
-                            }
-                          },
-                          decoration: InputDecoration(
-                              hintText: "product name",
-                              border: OutlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.green),
-                                  borderRadius: BorderRadius.circular(12.0))),
+                  width: size.width,
+                  height: 300,
+                  child: Form(
+                    key: formstate,
+                    onChanged: () {
+                      bool isValidate = formstate.currentState!.validate();
+                      subjectInsertbutton.add(isValidate);
+                    },
+                    child: ListView(
+                      children: [
+                        Text(
+                          'Product',
+                          style: TextStyle(color: Colors.orange, fontSize: 30),
                         ),
-                      ),
-                      Padding(
+                        Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: TextFormField(
-                            keyboardType: TextInputType.number,
-                            controller: propriceController,
+                            focusNode: focusproname,
+                            controller: pronameController,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return "price is required";
+                                return "product name required";
                               }
                             },
                             decoration: InputDecoration(
-                              hintText: "price",
-                              border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12.0)),
-                            ),
-                          )),
-                      StreamBuilder(
-                        initialData: false,
-                        stream: subjectAddProduct,
-                        builder: (BuildContext context,
-                            AsyncSnapshot<dynamic> snapshot) {
-                          bool _isValidfrom = snapshot.data;
-                          return ElevatedButton(
-                              onPressed: _isValidfrom
-                                  ? () {
-                                      postMongoDBdata();
-                                    }
-                                  : null,
-                              child: Text('ADD PRODUCT'));
-                        },
-                      )
-                    ],
-                  ),
-                ),
-              )
+                                hintText: "product name",
+                                border: OutlineInputBorder(
+                                    borderSide: BorderSide(color: Colors.green),
+                                    borderRadius: BorderRadius.circular(12.0))),
+                          ),
+                        ),
+                        Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: TextFormField(
+                              focusNode: focusproprice,
+                              keyboardType: TextInputType.number,
+                              controller: propriceController,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return "price is required";
+                                } else {
+                                  final numericRegex = RegExp(
+                                      r'^-?(([0-9]*)|(([0-9]*)\.([0-9]*)))$');
+                                  if (numericRegex.hasMatch(value)) {
+                                  } else {
+                                    return 'Price must be number';
+                                  }
+                                }
+                              },
+                              decoration: InputDecoration(
+                                hintText: "price",
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12.0)),
+                              ),
+                            )),
+                        StreamBuilder(
+                          stream: subjectInsertbutton,
+                          initialData: false,
+                          builder: (BuildContext context,
+                              AsyncSnapshot<dynamic> snapshot) {
+                            bool isvalid = snapshot.data;
+                            return ElevatedButton(
+                                onPressed: isvalid
+                                    ? () {
+                                        postMongoDBdata();
+                                        pronameController.clear();
+                                        propriceController.clear();
+                                        focusproname.unfocus();
+                                        focusproprice.unfocus();
+                                        fetchDataProdutTomodel();
+                                      }
+                                    : null,
+                                child: Text('ADD PRODUCT NOW'));
+                          },
+                        )
+                      ],
+                    ),
+                  )),
+              Expanded(
+                  child: StreamBuilder(
+                      initialData: <ProductModel>[],
+                      stream: subjectfetchproduct,
+                      builder: (context, AsyncSnapshot snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+                        List<ProductModel> productsSnapshot = snapshot.data;
+                        return Container(
+                          color: Colors.red,
+                          child: ListView.builder(
+                            itemCount: productsSnapshot.length,
+                            scrollDirection: Axis.vertical,
+                            itemBuilder: (BuildContext context, int index) {
+                              ProductModel product = productsSnapshot[index];
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Container(
+                                  height: 60,
+                                  color: Colors.white,
+                                  child: Center(
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceAround,
+                                      children: [
+                                        Text(
+                                          product.name,
+                                          style: TextStyle(fontSize: 30),
+                                        ),
+                                        Text(
+                                          "${product.price.toString()}\$",
+                                          style: TextStyle(fontSize: 30),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      }))
             ],
           ),
         ));
