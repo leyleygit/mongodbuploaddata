@@ -1,6 +1,7 @@
 import 'package:fetchdatafrommongo/appState/appState.dart';
 import 'package:fetchdatafrommongo/screen/homePage.dart';
 import 'package:fetchdatafrommongo/screen/login.dart';
+import 'package:fetchdatafrommongo/screen/productview.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -16,6 +17,6 @@ class _LoadingResourceState extends State<LoadingResource> {
   Widget build(BuildContext context) {
     var student = context.watch<AppState>().studentmodel;
     // return student == null ? LoginPage() : HomePage();
-    return HomePage();
+    return ProductView();
   }
 }
