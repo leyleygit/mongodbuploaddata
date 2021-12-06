@@ -22,14 +22,8 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   bool isLoadingConnection = true;
   connectMongo() async {
-    final String connectionString = ('mongodb://kerker:kerker@'
-        'kerker-shard-00-02.wyfcw.mongodb.net:27017,'
-        'kerker-shard-00-01.wyfcw.mongodb.net:27017,'
-        'kerker-shard-00-00.wyfcw.mongodb.net:27017/'
-        'stockmanagement?authSource=admin&compressors=disabled'
-        '&gssapiServiceName=mongodb&replicaSet=atlas-stcn2i-shard-0'
-        '&ssl=true');
-    var db = mongo.Db(connectionString);
+    final String connectionString = ('mongodb+srv://kerker:kerker@kerker.wyfcw.mongodb.net/stockmanagement');
+    var db =await mongo.Db.create(connectionString);
     await db.open();
     context.read<AppState>().db = db;
     setState(() {
