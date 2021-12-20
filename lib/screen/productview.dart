@@ -39,6 +39,14 @@ class _ProductViewState extends State<ProductView> {
     subjectFetchData.add(products);
   }
 
+  deleteProduct() async {
+ await   db.collection('product').updateMany(mongo.SelectorBuilder().oneFrom('_id', selectedProducts.map((e) => e.id).toList()), mongo.ModifierBuilder().set('status', 'disable')).then((value){
+      products.removeWhere((element) =>selectedProducts.map((e) => e.id).contains(element.id));
+    
+      fetchDataFromMongoDB();
+    });
+  }
+
   funInsertData() async {
     await db.collection('product').insert({
       'name': productNameController.text.toString(),
@@ -64,11 +72,69 @@ class _ProductViewState extends State<ProductView> {
   List _dropDownItems = ['enable', 'disable'];
   String _dropdownItem = "";
   BehaviorSubject<String> _subjectDropDownItem = BehaviorSubject<String>();
+  //create variable to check disable
+
+  List<ProductModel> selectedProducts = [];
+  BehaviorSubject<List<ProductModel>> subjectSelectedProducts = BehaviorSubject<List<ProductModel>>();
+  BehaviorSubject<bool> subjectShowSelectText = BehaviorSubject<bool>();
+  bool _isShowSelectText = true;
+  bool _isShowDelete = false;
+  BehaviorSubject<bool> subjectShowDelete = BehaviorSubject<bool>();
+  // BehaviorSubject<bool> subjectShowCircle=BehaviorSubject<bool>();
+  
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        leading: StreamBuilder(
+          initialData: false,
+          stream: subjectShowDelete,
+          builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {  
+            print(snapshot.data);
+           return snapshot.data? IconButton(onPressed: (){
+             deleteProduct();
+           }, icon: Icon(Icons.delete)):Container();
+         },),
+        actions: [
+          StreamBuilder(
+            initialData: true,
+            stream: subjectShowSelectText,
+            builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: Center(
+                    child: snapshot.data
+                        //true
+                        ? InkWell(
+                            onTap: () {
+                              _isShowSelectText = false;
+                             
+                              subjectShowSelectText.add(_isShowSelectText);
+                                                      
+                            },
+                            child: Text(
+                              'select',
+                              style: TextStyle(fontSize: 25),
+                            ),
+                          )
+                        //false
+                        : IconButton(
+                            onPressed: () {
+                               _isShowDelete = false;
+                                 subjectShowDelete.add(_isShowDelete);    
+                              _isShowSelectText = true;
+                              subjectShowSelectText.add(_isShowSelectText);
+                              selectedProducts.clear();
+                            },
+                            icon: Icon(Icons.close))),
+              );
+            },
+          )
+        ],
+        backgroundColor: Colors.red[300],
+      ),
       body: SafeArea(
         child: Container(
           width: size.width,
@@ -178,7 +244,6 @@ class _ProductViewState extends State<ProductView> {
                                   );
                                 }).toList(),
                                 onChanged: (val) {
-                                
                                   _dropdownItem = val.toString();
                                   _subjectDropDownItem.add(_dropdownItem);
                                 },
@@ -212,9 +277,12 @@ class _ProductViewState extends State<ProductView> {
                 ),
               ),
               Expanded(
-                  child: Container(
-                      // color: Colors.white,
-                      child: StreamBuilder(
+                  child: StreamBuilder(
+                    initialData: <ProductModel>[],
+                    stream: subjectSelectedProducts,
+                    builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
+                      List<ProductModel> _selectedProducts = snapshot.data;
+                      return StreamBuilder(
                 initialData: <ProductModel>[],
                 stream: subjectFetchData,
                 builder:
@@ -222,38 +290,81 @@ class _ProductViewState extends State<ProductView> {
                   List<ProductModel> productSnapshot = snapshot.data;
                   return ListView.builder(
                     physics: BouncingScrollPhysics(),
-                    itemCount: productSnapshot.length,
+                    itemCount: productSnapshot.length,//10
                     scrollDirection: Axis.vertical,
                     itemBuilder: (BuildContext context, int index) {
-                      ProductModel product = productSnapshot[index];
-                      return Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Container(
-                          height: 80,
-                          decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12.0),
-                              color: Colors.black.withOpacity(0.7)),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              Text(
-                                product.name,
-                                style: TextStyle(
-                                    color: Colors.white, fontSize: 22),
-                              ),
-                              Text(
-                                product.status == null ? "" : product.status!,
-                                style: TextStyle(
-                                    color: Colors.white, fontSize: 22),
-                              ),
-                            ],
+                  ProductModel product = productSnapshot[index];
+              
+                  return Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Stack(
+                      children: [
+                        InkWell(
+                          onTap: (){
+                           
+                            print(product.name);
+                            if(selectedProducts.contains(product)){
+                              selectedProducts.remove(product);
+                              if(selectedProducts.isEmpty){
+                                _isShowDelete=false;
+                                subjectShowDelete.add(_isShowDelete);
+                                
+                              }else{
+                                _isShowDelete=true;
+                                 subjectShowDelete.add(_isShowDelete);
+                              }
+                            }else{
+                              _isShowDelete=true;
+                                 subjectShowDelete.add(_isShowDelete);
+                              selectedProducts.add(product);
+                            }
+                            subjectSelectedProducts.add(selectedProducts);
+                         
+                          },
+                          child: Container(
+                            height: 80,
+                            decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12.0),
+                                color: Colors.black.withOpacity(0.7)),
+                            child: Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceAround,
+                              children: [
+                                Text(
+                                  product.name,
+                                  style: TextStyle(
+                                      color: Colors.white, fontSize: 22),
+                                ),
+                                Text(
+                                  product.status == null
+                                      ? ""
+                                      : product.status!,
+                                  style: TextStyle(
+                                      color: Colors.white, fontSize: 22),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      );
+                        StreamBuilder(
+                          initialData:  true,
+                          stream: subjectShowSelectText,
+                          builder: (context,AsyncSnapshot snapshot) {
+                            return snapshot.data?Container():_selectedProducts.contains(product)? Icon( Icons.check_circle,color: Colors.green,size: 35,):Icon( Icons.circle_outlined,color: Colors.white,size: 35,);
+                          }
+                        )
+                      ],
+                    ),
+                  );
                     },
                   );
                 },
-              )))
+              );
+                      },)
+              
+              
+              
+              )
             ],
           ),
         ),
